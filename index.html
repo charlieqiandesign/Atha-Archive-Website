@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>atha — store</title>
+<style>
+  :root{
+    --white:#FFFFFF;
+    --ink:#000000;
+    --blue:#95B9C5;
+    --font:"Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;}
+  body{
+    font-family:var(--font);
+    background:var(--white);
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+    overflow:hidden;
+  }
+  .screen{
+    position:fixed;
+    inset:0;
+    display:flex;
+    flex-direction:column;
+    opacity:0;
+    visibility:hidden;
+    transition:opacity .55s ease;
+  }
+  .screen.active{
+    opacity:1;
+    visibility:visible;
+  }
+
+  /* ---------------- ENTER PAGE ---------------- */
+  #enter{
+    background:var(--white);
+    align-items:center;
+    justify-content:center;
+    gap:34px;
+    cursor:pointer;
+  }
+  .enter-logo{
+    width:min(46vw,560px);
+    height:auto;
+    transition:transform .5s cubic-bezier(.2,.8,.2,1), opacity .5s ease;
+  }
+  #enter:hover .enter-logo{ transform:scale(1.012); }
+  #enter:active .enter-logo{ transform:scale(.985); }
+  .enter-hint{
+    font-size:13px;
+    font-weight:700;
+    letter-spacing:.32em;
+    text-transform:uppercase;
+    color:var(--ink);
+    opacity:.55;
+    animation:pulse 2.6s ease-in-out infinite;
+  }
+  @keyframes pulse{0%,100%{opacity:.25}50%{opacity:.7}}
+
+  /* ---------------- APP ---------------- */
+  #app{ background:var(--blue); }
+  .pattern{
+    position:absolute;
+    inset:0;
+    background-image:url("brand/atha-pattern.svg");
+    background-repeat:no-repeat;
+    background-position:center;
+    background-size:min(92vh,92vw) auto;
+    opacity:.16;
+    pointer-events:none;
+    z-index:0;
+  }
+  header{
+    position:relative;
+    z-index:3;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:30px 44px;
+    flex:0 0 auto;
+  }
+  .home-logo{
+    height:54px;
+    width:auto;
+    cursor:pointer;
+    transition:opacity .25s ease;
+  }
+  .home-logo:hover{ opacity:.65; }
+  nav.modes{
+    display:flex;
+    gap:30px;
+    align-items:center;
+  }
+  .mode-btn{
+    background:none;
+    border:none;
+    font-family:var(--font);
+    font-weight:700;
+    font-size:16px;
+    letter-spacing:.07em;
+    text-transform:uppercase;
+    color:var(--white);
+    opacity:.5;
+    cursor:pointer;
+    padding:6px 0;
+    position:relative;
+    transition:opacity .25s ease;
+  }
+  .mode-btn:hover{ opacity:.85; }
+  .mode-btn.active{ opacity:1; }
+  .mode-btn.active::after{
+    content:"";
+    position:absolute;
+    left:0;right:0;
+    bottom:-4px;
+    height:2px;
+    background:var(--white);
+  }
+
+  /* -------- shared rotation element -------- */
+  .rotator{ position:absolute; inset:0; }
+  .rotator img{
+    position:absolute; inset:0;
+    width:100%; height:100%;
+    object-fit:contain;
+    display:block;
+  }
+
+  /* -------- FIT VIEW -------- */
+  #fitView{
+    position:relative;
+    z-index:2;
+    flex:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:clamp(20px,4vw,70px);
+    padding:0 44px 30px;
+    min-height:0;
+  }
+  .arrow{
+    background:none;border:none;cursor:pointer;
+    color:var(--white);
+    width:54px;height:54px;
+    flex:0 0 auto;
+    display:flex;align-items:center;justify-content:center;
+    opacity:.75;
+    transition:opacity .2s ease, transform .2s ease;
+  }
+  .arrow:hover{ opacity:1; transform:scale(1.12); }
+  .arrow:active{ transform:scale(.95); }
+  .arrow svg{ width:34px;height:34px; }
+
+  .fit-center{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:22px;
+    min-height:0;
+    height:100%;
+    justify-content:center;
+  }
+  .fit-stage{
+    position:relative;
+    width:min(52vh,64vw,440px);
+    aspect-ratio:3/4;
+    cursor:zoom-in;
+  }
+  .fit-meta{
+    text-align:center;
+    color:var(--white);
+    display:flex;
+    flex-direction:column;
+    gap:7px;
+  }
+  .fit-index{
+    font-family:var(--font);
+    font-size:12px;
+    letter-spacing:.12em;
+    opacity:.8;
+  }
+  .fit-rotate{
+    font-size:11px;
+    font-weight:700;
+    letter-spacing:.22em;
+    text-transform:uppercase;
+    color:var(--white);
+    opacity:.85;
+  }
+
+  /* -------- THUMBNAILS VIEW -------- */
+  #thumbView{
+    position:relative;
+    z-index:2;
+    flex:1;
+    min-height:0;
+    overflow-y:auto;
+    padding:6px 44px 56px;
+  }
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:26px;
+    max-width:980px;
+    margin:0 auto;
+  }
+  .thumb{
+    cursor:pointer;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
+  .thumb-card{
+    position:relative;
+    width:100%;
+    aspect-ratio:3/4;
+    transition:transform .3s cubic-bezier(.2,.8,.2,1);
+  }
+  .thumb:hover .thumb-card{
+    transform:translateY(-6px);
+  }
+  .thumb-label{
+    display:flex;
+    justify-content:center;
+    align-items:baseline;
+    color:var(--white);
+    gap:10px;
+  }
+  .thumb-num{
+    font-family:var(--font);
+    font-size:12px;opacity:.7;letter-spacing:.12em;
+  }
+
+  /* ---------------- DETAIL OVERLAY ---------------- */
+  .detail-overlay{
+    position:fixed;
+    inset:0;
+    z-index:50;
+    background:var(--blue);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    opacity:0;
+    visibility:hidden;
+    transition:opacity .4s ease;
+  }
+  .detail-overlay.open{ opacity:1; visibility:visible; }
+  .detail-close{
+    position:absolute;
+    top:30px;right:44px;
+    height:54px;
+    z-index:4;
+    background:none;border:none;
+    font-family:var(--font);
+    font-weight:700;
+    font-size:16px;
+    letter-spacing:.07em;
+    text-transform:uppercase;
+    color:var(--white);
+    cursor:pointer;
+    opacity:.7;
+    transition:opacity .2s ease;
+    display:flex;align-items:center;gap:9px;
+  }
+  .detail-close:hover{ opacity:1; }
+  .detail-close svg{ width:15px;height:15px; }
+  .detail-inner{
+    position:relative;
+    z-index:2;
+    display:flex;
+    align-items:flex-start;
+    gap:clamp(18px,2.4vw,32px);
+    transform:scale(.97);
+    transition:transform .4s cubic-bezier(.2,.8,.2,1);
+  }
+  .detail-overlay.open .detail-inner{ transform:scale(1); }
+  .detail-hero{
+    position:relative;
+    flex:0 0 auto;
+    width:min(58vh,440px);
+    height:calc(min(58vh,440px) * 1.33);
+    overflow:hidden;
+  }
+  .part-still{
+    position:absolute; inset:0;
+    display:none;
+    align-items:center; justify-content:center;
+    background:var(--white);
+    z-index:3;
+    cursor:pointer;
+  }
+  .part-still.show{ display:flex; }
+  .part-still img{ width:100%; height:100%; object-fit:contain; display:block; }
+  .detail-hero-wrap{
+    flex:0 0 auto;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:18px;
+  }
+  .detail-index{
+    font-family:var(--font);
+    font-size:13px;letter-spacing:2.3px;opacity:.85;
+    color:var(--white);text-align:center;height:28px;
+  }
+  .detail-index.is-back{
+    font-weight:700;
+    letter-spacing:.2em;
+    opacity:1;
+    cursor:pointer;
+    padding:6px 2px;
+    border-bottom:2px solid var(--white);
+    height:auto;
+    transition:opacity .2s ease;
+  }
+  .detail-index.is-back:hover{ opacity:.7; }
+  .detail-gallery{
+    flex:0 0 auto;
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+  }
+  .gal-thumb{
+    flex:0 0 auto;
+    background:none;
+    border:none;
+    padding:0;
+    cursor:pointer;
+    position:relative;
+    display:flex;
+    flex-direction:row;
+    align-items:center;
+    gap:11px;
+    transition:transform .25s ease;
+  }
+  .gal-card{
+    flex:0 0 auto;
+    height:calc((min(58vh,440px) * 1.33 - 28px) / 3);
+    aspect-ratio:5/6;
+    background:var(--white);
+    overflow:hidden;
+    border:2px solid transparent;
+    transition:border-color .2s ease;
+  }
+  .gal-card img{ width:100%;height:100%;object-fit:contain;display:block; }
+  .gal-title{
+    position:absolute;
+    left:calc(100% + 11px);
+    top:0; bottom:0;
+    display:flex; flex-direction:column; justify-content:center;
+    font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--white);opacity:.5;text-align:left;white-space:pre-line;line-height:1.4;
+    width:8.5em;
+    transition:opacity .2s ease;
+  }
+  .gal-thumb:hover{ transform:translateX(4px); }
+  .gal-thumb:hover .gal-title{ opacity:.8; }
+  .gal-thumb.active .gal-card{ border-color:var(--white); }
+  .gal-thumb.active .gal-title{ opacity:1; }
+  .gal-empty{ pointer-events:none; cursor:default; }
+  .gal-empty:hover{ transform:none; }
+
+  /* ---- byline ---- */
+  .byline{
+    position:absolute;
+    left:44px; bottom:26px;
+    z-index:6;
+    font-size:12px; font-weight:700; letter-spacing:.04em;
+    text-decoration:none; opacity:.62;
+    transition:opacity .2s ease;
+  }
+  .byline:hover{ opacity:1; }
+  .byline-dark{ color:var(--ink); }
+  .byline-light{ color:var(--white); }
+
+  /* ---- media page ---- */
+  #mediaView{
+    position:relative; z-index:2;
+    flex:1; min-height:0;
+    display:flex; align-items:center; justify-content:center;
+    padding:0 44px 44px;
+  }
+  .media-rail{
+    display:flex; align-items:center; justify-content:center;
+    gap:clamp(16px,3vw,46px);
+    width:100%;
+  }
+  .media-vid{
+    background:#000;
+    cursor:pointer;
+    flex:0 0 auto;
+    display:block;
+    aspect-ratio:3/4;
+    object-fit:contain;
+    transition:height .45s cubic-bezier(.2,.8,.2,1), opacity .45s ease, box-shadow .45s ease;
+  }
+  .media-vid.is-center{
+    height:min(66vh,560px);
+    opacity:1; cursor:default;
+    box-shadow:0 30px 70px rgba(0,0,0,.28);
+  }
+  .media-vid.is-left, .media-vid.is-right{
+    height:min(46vh,400px);
+    opacity:.5;
+  }
+  .media-vid.is-left:hover, .media-vid.is-right:hover{ opacity:.82; }
+
+  /* ---- about page ---- */
+  #aboutView{
+    position:relative; z-index:2;
+    flex:1; min-height:0;
+    padding:9vh 44px 44px;
+  }
+  .about-body{
+    max-width:560px;
+    color:var(--white);
+    display:flex; flex-direction:column; gap:22px;
+  }
+  .about-body p{
+    font-size:14px;
+    line-height:1.6;
+    letter-spacing:.01em;
+    text-wrap:pretty;
+  }
+  .about-body a{ color:var(--white); text-decoration:underline; text-underline-offset:3px; }
+
+  @media (max-width:860px){
+    .byline{ left:22px; bottom:18px; }
+    #mediaView,#aboutView{ padding-left:22px; padding-right:22px; }
+    .modes{ gap:18px; }
+    .grid{ grid-template-columns:repeat(2,1fr); }
+    header{ padding:22px 22px; }
+    #fitView,#thumbView{ padding-left:22px;padding-right:22px; }
+    .arrow{ width:40px;height:40px; }
+    .detail-overlay{ overflow-y:auto; padding:84px 0 60px; }
+    .detail-inner{ flex-direction:column; align-items:center; gap:22px; padding:0 20px; }
+    .detail-hero-wrap{ align-self:center; }
+    .detail-hero{ width:min(46vh,72vw,300px); height:auto; aspect-ratio:3/4; }
+    .detail-gallery{ flex-direction:row; flex-wrap:nowrap; height:auto; width:auto; max-width:94vw; gap:14px; justify-content:center; }
+    .gal-thumb{ flex:0 0 auto; flex-direction:column; align-items:center; gap:6px; }
+    .gal-card{ height:auto; width:26vw; max-width:104px; }
+    .gal-title{ position:static; text-align:center; white-space:normal; width:min(26vw,104px); }
+    .detail-close{ right:auto; left:50%; transform:translateX(-50%); top:22px; }
+    #fitView{ padding-bottom:64px; }
+    .fit-center{ gap:16px; }
+  }
+  @media (max-width:700px){
+    #mediaView{ padding:0 12px 28px; }
+    .media-rail{ gap:8px; }
+    .media-vid{ width:auto !important; height:auto !important; }
+    .media-vid.is-center{ max-width:60vw; max-height:56vh; }
+    .media-vid.is-left, .media-vid.is-right{ max-width:16vw; max-height:30vh; }
+    .fit-rotate{ display:none; }
+  }
+  @media (max-width:560px){
+    header{ padding:18px 16px; }
+    .home-logo{ height:34px; }
+    nav.modes{ gap:12px; }
+    .mode-btn{ font-size:14px; letter-spacing:0.06em; padding:4px 0; }
+    .detail-close{ top:18px; right:auto; left:50%; transform:translateX(-50%); height:34px; font-size:14px; letter-spacing:0.06em; }
+    .detail-close svg{ width:12px;height:12px; }
+    .mode-btn.active::after{ bottom:-3px; }
+    .enter-logo{ width:62vw; }
+    .grid{ grid-template-columns:repeat(2,1fr); }
+    #aboutView{ padding-top:6vh; }
+  }
+  @media (prefers-reduced-motion:reduce){
+    .enter-hint{ animation:none; }
+  }
+</style>
+</head>
+<body>
+
+  <!-- 1. ENTER PAGE -->
+  <section id="enter" class="screen active">
+    <img class="enter-logo" src="brand/atha-logo-black.png" alt="atha">
+    <p class="enter-hint">click to enter</p>
+    <a class="byline byline-dark" href="https://www.xiaohongshu.com/user/profile/5f78327c0000000001000eef?xsec_token=ABCwTf-D1n1dxZB2cp-kJEyyjuTE6Yhs8st-eoWpMXiiE%3D&xsec_source=pc_search" target="_blank" rel="noopener" onclick="event.stopPropagation()">by @charlie_qian</a>
+  </section>
+
+  <!-- 2 + 3. APP -->
+  <section id="app" class="screen">
+    <div class="pattern"></div>
+
+    <header>
+      <img class="home-logo" id="homeLogo" src="brand/atha-logo-white.png" alt="atha — home">
+      <nav class="modes">
+        <button class="mode-btn active" id="modeFits">Fits</button>
+        <button class="mode-btn" id="modeThumbs">Thumbnails</button>
+        <button class="mode-btn" id="modeMedia">Media</button>
+        <button class="mode-btn" id="modeAbout">About</button>
+      </nav>
+    </header>
+
+    <!-- FIT VIEW -->
+    <div id="fitView">
+      <button class="arrow" id="prevBtn" aria-label="previous fit">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 4 7 12 15 20"></polyline></svg>
+      </button>
+
+      <div class="fit-center">
+        <div class="fit-stage" id="fitStage"></div>
+        <div class="fit-meta">
+          <span class="fit-index" id="fitIndex">01 / 06</span>
+          <span class="fit-rotate" id="fitRotate">hover to rotate</span>
+        </div>
+      </div>
+
+      <button class="arrow" id="nextBtn" aria-label="next fit">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 4 17 12 9 20"></polyline></svg>
+      </button>
+    </div>
+
+    <!-- THUMBNAILS VIEW -->
+    <div id="thumbView" style="display:none;">
+      <div class="grid" id="thumbGrid"></div>
+    </div>
+
+    <!-- MEDIA VIEW -->
+    <div id="mediaView" style="display:none;">
+      <div class="media-rail" id="mediaRail"></div>
+    </div>
+
+    <!-- ABOUT VIEW -->
+    <div id="aboutView" style="display:none;">
+      <div class="about-body">
+        <p>This is an unofficial fan website curated by @charlie_qian. It is not intended, nor authorized, for any commercial use or financial gain. Any external use must be explicitly acknowledged.</p>
+        <p>Find Atha via WeChat mini program, Xiaohongshu, and Instagram.</p>
+      </div>
+    </div>
+
+    <a class="byline byline-light" href="https://www.xiaohongshu.com/user/profile/5f78327c0000000001000eef?xsec_token=ABCwTf-D1n1dxZB2cp-kJEyyjuTE6Yhs8st-eoWpMXiiE%3D&xsec_source=pc_search" target="_blank" rel="noopener">by @charlie_qian</a>
+  </section>
+
+  <!-- DETAIL OVERLAY -->
+  <div class="detail-overlay" id="detailOverlay">
+    <div class="pattern"></div>
+    <a class="byline byline-light" href="https://www.xiaohongshu.com/user/profile/5f78327c0000000001000eef?xsec_token=ABCwTf-D1n1dxZB2cp-kJEyyjuTE6Yhs8st-eoWpMXiiE%3D&xsec_source=pc_search" target="_blank" rel="noopener">by @charlie_qian</a>
+    <button class="detail-close" id="detailClose" style="font-family: &quot;Helvetica Neue&quot;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="5" y1="5" x2="19" y2="19"></line><line x1="19" y1="5" x2="5" y2="19"></line></svg>
+      Close
+    </button>
+    <div class="detail-inner">
+      <div class="detail-hero-wrap">
+        <div class="detail-hero" id="detailHero">
+          <div class="part-still" id="partStill"><img id="partImg" alt=""></div>
+        </div>
+        <div class="detail-index" id="detailIndex">01 / 06</div>
+      </div>
+      <div class="detail-gallery" id="detailGallery"></div>
+    </div>
+  </div>
+
+<script>
+/* ============================================================
+   atha — product catalogue
+   Each fit is a single transparent animated .webp (50-frame
+   turntable). On desktop it rotates only while hovered; on
+   touch / small screens it rotates continuously.
+   ============================================================ */
+const PRODUCTS = [
+  { name:"fit 01", rot:"products/rotations/fit1.webp",
+    parts:[
+      { label:"contrast stitch\nlogo tee", src:"products/fit1/atha-product-fit1-front-tops.jpg",      back:"products/fit1/atha-product-fit1-back-tops.jpg" },
+      { label:"hell zip-up\nhoodie",       src:"products/fit1/atha-product-fit1-front-outerwear.jpg", back:"products/fit1/atha-product-fit1-back-outerwear.jpg" },
+      { label:"danger fleece\nshort",      src:"products/fit1/atha-product-fit1-front-bottoms.jpg",   back:"products/fit1/atha-product-fit1-back-bottoms.jpg" },
+    ]},
+  { name:"fit 02", rot:"products/rotations/fit2.webp",
+    parts:[
+      { label:"hell zip-up\nhoodie",   src:"products/fit2/atha-product-fit2-front-outerwear.jpg", back:"products/fit2/atha-product-fit2-back-outerwear.jpg" },
+      { label:"danger\nshorts set",    src:"products/fit2/atha-product-fit2-front-bottom.jpg",     back:"products/fit2/atha-product-fit2-back-bottom.jpg" },
+      { label:"vertical logo\nsocks",  src:"products/fit2/atha-product-fit2-front-accessories.png" },
+    ]},
+  { name:"fit 03", rot:"products/rotations/fit3.webp",
+    parts:[
+      { label:"capsule tee",          src:"products/fit3/atha-product-fit3-front-top.jpg",    back:"products/fit3/atha-product-fit3-back-top.jpg" },
+      { label:"waxed studded\ndenim", src:"products/fit3/atha-product-fit3-front-bottom.jpg", back:"products/fit3/atha-product-fit3-back-bottom.jpg" },
+    ]},
+  { name:"fit 04", rot:"products/rotations/fit4.webp",
+    parts:[
+      { label:"figure runner\nt-shirt",     src:"products/fit4/atha-product-fit4-front-top.jpg",         back:"products/fit4/atha-product-fit4-back-top.jpg" },
+      { label:"waxed studded\ndenim",   src:"products/fit4/atha-product-fit4-front-bottom.jpg",      back:"products/fit4/atha-product-fit4-back-bottom.jpg" },
+      { label:"prayer trucker\nhat",    src:"products/fit4/atha-product-fit4-front-accessories.jpg", back:"products/fit4/atha-product-fit4-back-accessories.jpg" },
+    ]},
+  { name:"fit 05", rot:"products/rotations/fit5.webp",
+    parts:[
+      { label:"slogan denim", src:"products/fit5/atha-product-fit5-front-bottom.jpg", back:"products/fit5/atha-product-fit5-back-bottom.jpg" },
+    ]},
+  { name:"fit 06", rot:"products/rotations/fit6.webp",
+    parts:[
+      { label:"studded active\njacket",   src:"products/fit6/atha-product-fit6-front-outerwear.jpg", back:"products/fit6/atha-product-fit6-back-outerwear.jpg" },
+      { label:"wide leg\nsweatpants", src:"products/fit6/atha-product-fit6-front-bottom.jpg",    back:"products/fit6/atha-product-fit6-back-bottom.jpg" },
+    ]},
+];
+
+function pad(n){ return String(n).padStart(2,"0"); }
+
+/* ---- desktop hovers to rotate; touch / small screens rotate always ---- */
+const noHoverMQ = window.matchMedia("(hover: none), (max-width: 700px)");
+const rotators = new Set();
+
+// A rotator shows a lightweight static poster (≈35 KB JPEG of the first frame,
+// on a white background) immediately, and only fetches the heavy ~2 MB animated
+// turntable .webp when it is actually needed:
+//   • desktop  → on first hover (then cached); pauses back to poster on leave
+//   • touch/sm → when the product is the active / visible one
+// Thumbnails never load the animation — they stay on the poster.
+function posterFor(rot){ return rot.replace(/\.webp$/, "-poster.png"); }
+
+function makeRotator(product, opts){
+  opts = opts || {};
+  const wrap = document.createElement("div");
+  wrap.className = "rotator";
+  const poster = document.createElement("img");
+  poster.className = "rot-still"; poster.alt = ""; poster.decoding = "async";
+  poster.loading = opts.eager ? "eager" : "lazy";
+  poster.src = posterFor(product.rot);
+  wrap.appendChild(poster);
+
+  const api = { wrap, hover:false, thumb:!!opts.thumb, anim:null, ready:false };
+
+  function ensureAnim(){
+    if(api.anim || api.thumb) return;
+    const img = document.createElement("img");
+    img.className = "rot-img"; img.alt = ""; img.decoding = "async";
+    img.style.display = "none";
+    img.addEventListener("load", ()=>{ api.ready = true; api.refresh(); });
+    img.src = product.rot;
+    wrap.appendChild(img);
+    api.anim = img;
+  }
+  api.preload = ensureAnim;
+
+  function setPlay(on){
+    if(on){
+      ensureAnim();
+      if(api.ready){ api.anim.style.display="block"; poster.style.display="none"; }
+    } else {
+      if(api.anim) api.anim.style.display="none";
+      poster.style.display="block";
+    }
+  }
+  api.refresh = ()=>{
+    if(api.thumb){ setPlay(false); return; }
+    setPlay(noHoverMQ.matches || api.hover);
+  };
+
+  if(!opts.thumb){
+    wrap.addEventListener("pointerenter", e=>{ if(e.pointerType!=="touch"){ api.hover=true; api.refresh(); } });
+    wrap.addEventListener("pointerleave", ()=>{ api.hover=false; api.refresh(); });
+  }
+
+  rotators.add(api);
+  api.refresh();
+  return api;
+}
+function applyModes(){ rotators.forEach(r=> r.refresh()); }
+if(noHoverMQ.addEventListener) noHoverMQ.addEventListener("change", applyModes);
+
+/* ============================================================
+   App wiring
+   ============================================================ */
+const enterScreen = document.getElementById("enter");
+const appScreen   = document.getElementById("app");
+let current = 0;
+
+/* ---- FIT VIEW ---- */
+const fitStage = document.getElementById("fitStage");
+const fitRot = {};
+function showFitProduct(){
+  Object.values(fitRot).forEach(r=> r.wrap.style.display="none");
+  if(!fitRot[current]){
+    fitRot[current] = makeRotator(PRODUCTS[current], {eager:true});
+    fitStage.appendChild(fitRot[current].wrap);
+  }
+  fitRot[current].wrap.style.display="block";
+  fitRot[current].refresh();
+  const r = fitRot[current];
+  setTimeout(()=> r.preload(), 250); // warm the animation so hover is instant
+}
+function setProduct(i){
+  current = (i % PRODUCTS.length + PRODUCTS.length) % PRODUCTS.length;
+  document.getElementById("fitIndex").textContent = `${pad(current+1)} / ${pad(PRODUCTS.length)}`;
+  showFitProduct();
+}
+fitStage.addEventListener("click", ()=> openDetail(current));
+document.getElementById("prevBtn").addEventListener("click", ()=> setProduct(current-1));
+document.getElementById("nextBtn").addEventListener("click", ()=> setProduct(current+1));
+
+/* ---- crossfade transition ---- */
+let transitioning = false;
+function videoTransition(fromEl, toEl, setup){
+  const finish = ()=>{
+    fromEl.classList.remove("active"); toEl.classList.add("active");
+    fromEl.style.opacity=""; toEl.style.opacity="";
+    fromEl.style.transition=""; toEl.style.transition="";
+  };
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if(transitioning || reduce){ setup(); finish(); return; }
+  transitioning = true;
+  setup();
+  fromEl.style.transition = "none"; toEl.style.transition = "none";
+  fromEl.classList.add("active"); toEl.classList.add("active");
+  fromEl.style.opacity = "1"; toEl.style.opacity = "0";
+  const start = performance.now();
+  const playMs = 850;
+  const ease = x => x<0.5 ? 4*x*x*x : 1-Math.pow(-2*x+2,3)/2;
+  function frame(){
+    const e = performance.now()-start;
+    const cf = ease(Math.min(e/playMs,1));
+    fromEl.style.opacity = String(1 - cf);
+    toEl.style.opacity = String(cf);
+    if(e < playMs){ setTimeout(frame, 16); }
+    else { finish(); transitioning=false; }
+  }
+  frame();
+}
+
+/* ---- enter → app ---- */
+enterScreen.addEventListener("click", ()=>{
+  videoTransition(enterScreen, appScreen, ()=>{ setMode("fits"); setProduct(current); });
+});
+/* ---- home logo → enter ---- */
+document.getElementById("homeLogo").addEventListener("click", ()=>{
+  videoTransition(appScreen, enterScreen, ()=> pauseMedia());
+});
+
+/* ---- mode switch ---- */
+function setMode(mode){
+  [["modeFits","fits"],["modeThumbs","thumbs"],["modeMedia","media"],["modeAbout","about"]]
+    .forEach(([id,m])=>document.getElementById(id).classList.toggle("active", mode===m));
+  document.getElementById("fitView").style.display   = mode==="fits"   ? "flex"  : "none";
+  document.getElementById("thumbView").style.display = mode==="thumbs" ? "block" : "none";
+  document.getElementById("mediaView").style.display = mode==="media"  ? "flex"  : "none";
+  document.getElementById("aboutView").style.display = mode==="about"  ? "block" : "none";
+  if(mode==="thumbs"){ buildThumbs(); }
+  if(mode==="media"){ buildMedia(); layoutMedia(); } else { pauseMedia(); }
+}
+document.getElementById("modeFits").addEventListener("click", ()=>setMode("fits"));
+document.getElementById("modeThumbs").addEventListener("click", ()=>setMode("thumbs"));
+document.getElementById("modeMedia").addEventListener("click", ()=>setMode("media"));
+document.getElementById("modeAbout").addEventListener("click", ()=>setMode("about"));
+
+/* ---- THUMBNAILS ---- */
+let thumbsBuilt=false;
+function buildThumbs(){
+  if(thumbsBuilt) return;
+  const grid=document.getElementById("thumbGrid");
+  grid.innerHTML="";
+  PRODUCTS.forEach((p,i)=>{
+    const card=document.createElement("div");
+    card.className="thumb";
+    card.innerHTML=`<div class="thumb-card"></div><div class="thumb-label"><span class="thumb-num">${pad(i+1)} / ${pad(PRODUCTS.length)}</span></div>`;
+    const holder=card.querySelector(".thumb-card");
+    holder.appendChild(makeRotator(p, {thumb:true}).wrap);
+    card.addEventListener("click", ()=>{ setProduct(i); setMode("fits"); });
+    grid.appendChild(card);
+  });
+  thumbsBuilt=true;
+}
+
+/* ---- MEDIA (2 clips, only the centre one plays) ---- */
+const MEDIA = ["videos/atha-media-a.mp4","videos/atha-media-b.mp4"];
+let mediaCenter = 0;
+let mediaVideos = null;
+function buildMedia(){
+  if(mediaVideos) return;
+  const rail = document.getElementById("mediaRail");
+  rail.innerHTML = "";
+  mediaVideos = MEDIA.map((src,i)=>{
+    const v = document.createElement("video");
+    v.muted = true; v.defaultMuted = true; v.loop = true; v.playsInline = true;
+    v.setAttribute("playsinline",""); v.setAttribute("webkit-playsinline","");
+    v.setAttribute("muted",""); v.setAttribute("loop","");
+    v.preload = "auto";
+    v.className = "media-vid";
+    v.addEventListener("click", ()=>{ if(i!==mediaCenter){ mediaCenter = i; layoutMedia(); } });
+    rail.appendChild(v);
+    fetch(src).then(r=>r.blob()).then(b=>{
+      v.src = URL.createObjectURL(b);
+      v.load();
+      if(i===mediaCenter) v.play().catch(()=>{}); else paintStill(v);
+    }).catch(()=>{ v.src = src; if(i===mediaCenter) v.play().catch(()=>{}); });
+    return v;
+  });
+}
+function paintStill(v){ v.play().then(()=>{ v.pause(); }).catch(()=>{}); }
+function layoutMedia(){
+  if(!mediaVideos) return;
+  mediaVideos.forEach((v,i)=>{
+    v.classList.remove("is-center","is-left","is-right");
+    if(i===mediaCenter){ v.classList.add("is-center"); v.style.order = 2; v.play().catch(()=>{}); }
+    else { v.classList.add("is-right"); v.style.order = 3; paintStill(v); }
+  });
+}
+function pauseMedia(){ if(mediaVideos) mediaVideos.forEach(v=>v.pause()); }
+
+/* ============================================================
+   DETAIL OVERLAY — big rotation + garment breakdown
+   ============================================================ */
+const detailOverlay = document.getElementById("detailOverlay");
+const detailHero    = document.getElementById("detailHero");
+const partStill     = document.getElementById("partStill");
+const partImg       = document.getElementById("partImg");
+let detailRot = null;
+let detailOpen = false;
+let curPart = null;
+let partBack = false;
+
+function setDetailIndex(){
+  const el = document.getElementById("detailIndex");
+  if(curPart){ el.textContent = "BACK TO FULL VIEW"; el.classList.add("is-back"); }
+  else { el.textContent = `${pad(current+1)} / ${pad(PRODUCTS.length)}`; el.classList.remove("is-back"); }
+}
+function showPart(part){
+  curPart = part;
+  partBack = false;
+  if(part){
+    if(detailRot) detailRot.wrap.style.display="none";
+    partImg.src = part.src;
+    partStill.classList.add("show");
+  } else {
+    partStill.classList.remove("show");
+    partImg.removeAttribute("src");
+    if(detailRot){ detailRot.wrap.style.display="block"; detailRot.refresh(); }
+  }
+  setDetailIndex();
+}
+partStill.addEventListener("pointerenter", e=>{ if(e.pointerType!=="touch" && curPart && curPart.back) partImg.src=curPart.back; });
+partStill.addEventListener("pointerleave", e=>{ if(e.pointerType!=="touch" && curPart) partImg.src = (partBack && curPart.back) ? curPart.back : curPart.src; });
+/* tap the big pic to flip front <-> back (works on phone where there is no hover) */
+partStill.addEventListener("click", ()=>{ if(!curPart || !curPart.back) return; partBack=!partBack; partImg.src = partBack ? curPart.back : curPart.src; });
+
+/* Every fit's gallery uses the SAME fixed 3-slot layout as fit 01:
+   real parts fill from the top, remaining slots stay empty (blank)
+   so each viewing pic is identical in size + position across fits. */
+/* The gallery sizes to its real parts and is centered as a group against the
+   big pic; every card is the same size as on Detail Page 01. */
+function buildGallery(){
+  const gal = document.getElementById("detailGallery");
+  gal.innerHTML = "";
+  PRODUCTS[current].parts.forEach(pt=>{
+    const btn = document.createElement("button"); btn.className="gal-thumb";
+    const card = document.createElement("div"); card.className="gal-card";
+    const im = document.createElement("img"); im.alt=""; im.src=pt.src;
+    card.appendChild(im);
+    const title = document.createElement("span"); title.className="gal-title"; title.textContent=pt.label||"";
+    btn.appendChild(card); btn.appendChild(title);
+    btn.addEventListener("pointerenter", e=>{ if(e.pointerType!=="touch" && pt.back) im.src=pt.back; });
+    btn.addEventListener("pointerleave", ()=>{ im.src=pt.src; });
+    btn.addEventListener("click", ()=>{
+      const active = btn.classList.contains("active");
+      gal.querySelectorAll(".gal-thumb").forEach(t=>t.classList.remove("active"));
+      if(active){ showPart(null); }
+      else { btn.classList.add("active"); showPart(pt); }
+    });
+    gal.appendChild(btn);
+  });
+}
+
+function openDetail(i){
+  if(i==null) i = current;
+  current = (i % PRODUCTS.length + PRODUCTS.length) % PRODUCTS.length;
+  if(detailRot){ rotators.delete(detailRot); detailRot.wrap.remove(); detailRot=null; }
+  detailRot = makeRotator(PRODUCTS[current], {eager:true});
+  detailHero.insertBefore(detailRot.wrap, partStill);
+  curPart = null;
+  showPart(null);
+  buildGallery();
+  setDetailIndex();
+  detailOpen = true;
+  detailOverlay.classList.add("open");
+  setTimeout(()=> detailRot && detailRot.preload(), 200); // warm the animation
+}
+function closeDetail(){
+  detailOpen = false;
+  detailOverlay.classList.remove("open");
+  if(detailRot){ rotators.delete(detailRot); detailRot.wrap.remove(); detailRot=null; }
+}
+document.getElementById("detailIndex").addEventListener("click", ()=>{
+  if(!curPart) return;
+  document.querySelectorAll("#detailGallery .gal-thumb").forEach(t=>t.classList.remove("active"));
+  showPart(null);
+});
+document.getElementById("detailClose").addEventListener("click", closeDetail);
+detailOverlay.addEventListener("click", e=>{ if(e.target===detailOverlay) closeDetail(); });
+document.addEventListener("keydown", e=>{ if(e.key==="Escape" && detailOpen) closeDetail(); });
+
+/* ---- initial labels ---- */
+document.getElementById("fitIndex").textContent = `${pad(1)} / ${pad(PRODUCTS.length)}`;
+if(noHoverMQ.matches) document.getElementById("fitRotate").textContent = "rotating";
+noHoverMQ.addEventListener && noHoverMQ.addEventListener("change", ()=>{
+  document.getElementById("fitRotate").textContent = noHoverMQ.matches ? "rotating" : "hover to rotate";
+});
+</script>
+
+</body>
+</html>
+
+<style id="__om-edit-overrides">
+#thumbGrid >div:nth-child(1) >div >:is(h1,h2,h3,h4,h5,h6,p,li,dt,dd,blockquote,figcaption,label,span,a,em,strong,small,td,th,caption) { text-align: center !important }
+#thumbGrid >div:nth-child(1) >div >:is(h1,h2,h3,h4,h5,h6,p,li,dt,dd,blockquote,figcaption,label,span,a,em,strong,small,td,th,caption) { text-align: left !important }
+#thumbGrid >div:nth-child(1) >div >:is(h1,h2,h3,h4,h5,h6,p,li,dt,dd,blockquote,figcaption,label,span,a,em,strong,small,td,th,caption) { opacity: 1 !important }
+#thumbGrid >div:nth-child(1) >div >:is(h1,h2,h3,h4,h5,h6,p,li,dt,dd,blockquote,figcaption,label,span,a,em,strong,small,td,th,caption) { font-size: 13px !important }
+#thumbGrid >div:nth-child(2) >div >:is(h1,h2,h3,h4,h5,h6,p,li,dt,dd,blockquote,figcaption,label,span,a,em,strong,small,td,th,caption) { opacity: 0.07 !important }
+#thumbGrid >div:nth-child(2) >div >:is(h1,h2,h3,h4,h5,h6,p,li,dt,dd,blockquote,figcaption,label,span,a,em,strong,small,td,th,caption) { opacity: 1 !important }
+#thumbGrid >div:nth-child(2) >div >:is(h1,h2,h3,h4,h5,h6,p,li,dt,dd,blockquote,figcaption,label,span,a,em,strong,small,td,th,caption) { font-size: 13px !important }
+#thumbGrid >div:nth-child(2) >div >:is(h1,h2,h3,h4,h5,h6,p,li,dt,dd,blockquote,figcaption,label,span,a,em,strong,small,td,th,caption) { font-size: 14px !important }
+#thumbGrid >div:nth-child(3) :is(h1,h2,h3,h4,h5,h6,p,li,dt,dd,blockquote,figcaption,label,span,a,em,strong,small,td,th,caption) { opacity: 1 !important }
+#thumbGrid >div:nth-child(3) :is(h1,h2,h3,h4,h5,h6,p,li,dt,dd,blockquote,figcaption,label,span,a,em,strong,small,td,th,caption) { font-size: 14px !important }
+#thumbGrid >div:nth-child(4) >div >:is(h1,h2,h3,h4,h5,h6,p,li,dt,dd,blockquote,figcaption,label,span,a,em,strong,small,td,th,caption) { font-size: 14px !important }
+#thumbGrid >div:nth-child(4) >div >:is(h1,h2,h3,h4,h5,h6,p,li,dt,dd,blockquote,figcaption,label,span,a,em,strong,small,td,th,caption) { opacity: 1 !important }
+#thumbGrid >div:nth-child(5) :is(h1,h2,h3,h4,h5,h6,p,li,dt,dd,blockquote,figcaption,label,span,a,em,strong,small,td,th,caption) { font-size: 14px !important }
+#thumbGrid >div:nth-child(5) :is(h1,h2,h3,h4,h5,h6,p,li,dt,dd,blockquote,figcaption,label,span,a,em,strong,small,td,th,caption) { opacity: 1 !important }
+#thumbGrid >div:nth-child(6) :is(h1,h2,h3,h4,h5,h6,p,li,dt,dd,blockquote,figcaption,label,span,a,em,strong,small,td,th,caption) { font-size: 14px !important }
+#thumbGrid >div:nth-child(6) :is(h1,h2,h3,h4,h5,h6,p,li,dt,dd,blockquote,figcaption,label,span,a,em,strong,small,td,th,caption) { opacity: 1 !important }
+#thumbGrid >div:nth-child(1) >div >:is(h1,h2,h3,h4,h5,h6,p,li,dt,dd,blockquote,figcaption,label,span,a,em,strong,small,td,th,caption) { font-size: 14px !important }
+</style>
